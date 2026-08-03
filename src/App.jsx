@@ -9,7 +9,7 @@ import {
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyAa70m48LmPidivmulGjSP_fURGjKDcbx8',
+  apiKey: 'AIzaSyAa70m48LmPidivmulGjSP_fURgjKDcbx8',
   authDomain: 'stylespace-6de0c.firebaseapp.com',
   projectId: 'stylespace-6de0c',
   storageBucket: 'stylespace-6de0c.firebasestorage.app',
