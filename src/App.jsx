@@ -1,29 +1,28 @@
 import React, { useState, useEffect } from 'react';
+import { LogOut, Plus, Shirt } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
-import {
-  getAuth,
-  signInWithPopup,
-  GoogleAuthProvider,
-  onAuthStateChanged,
-} from 'firebase/auth';
+import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
 import { getFirestore, doc, setDoc, onSnapshot } from 'firebase/firestore';
 
+// ⚠️ IMPORTANT: PASTE YOUR ACTUAL API KEY HERE ⚠️
 const firebaseConfig = {
-  apiKey: 'AIzaSyAa70m48LmPidivmulGjSP_fURgjKDcbx8',
-  authDomain: 'stylespace-6de0c.firebaseapp.com',
-  projectId: 'stylespace-6de0c',
-  storageBucket: 'stylespace-6de0c.firebasestorage.app',
-  messagingSenderId: '867973856017',
-  appId: '1:867973856017:web:0ae847a9c2d163d9e8eab0',
+  apiKey: "AIzaSyAa70m48LmPidivmulGjSP_fURgjKDcbx8", // Replace if this is not the exact working key
+  authDomain: "stylespace-6de0c.firebaseapp.com",
+  projectId: "stylespace-6de0c",
+  storageBucket: "stylespace-6de0c.firebasestorage.app",
+  messagingSenderId: "867973856017",
+  appId: "1:867973856017:web:0ae847a9c2d163d9e8eab0"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const appId = 'stylespace';
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [clothes, setClothes] = useState([]);
+  const [outfits, setOutfits] = useState([]);
   const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
@@ -32,68 +31,146 @@ export default function App() {
 
   useEffect(() => {
     if (!user || isSyncing) return;
-    const ref = doc(db, 'stylespace', user.uid);
+    const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
     return onSnapshot(ref, (snap) => {
-      if (snap.exists()) setClothes(snap.data().clothes || []);
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.clothes) setClothes(data.clothes);
+        if (data.outfits) setOutfits(data.outfits);
+      }
     });
   }, [user, isSyncing]);
 
-  const saveToCloud = async (newClothes) => {
+  const pushDataToCloud = async (field, data) => {
     if (!user) return;
     setIsSyncing(true);
     try {
-      await setDoc(
-        doc(db, 'stylespace', user.uid),
-        { clothes: newClothes },
-        { merge: true }
-      );
+      const ref = doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'data');
+      await setDoc(ref, { [field]: data, lastBackup: new Date().toISOString() }, { merge: true });
+    } catch (e) {
+      console.error(e);
     } finally {
       setTimeout(() => setIsSyncing(false), 1000);
     }
   };
 
-  const addItem = () => {
-    const next = [...clothes, { id: Date.now(), name: 'New Item' }];
+  const handleAdd = (items) => {
+    const next = [...clothes, ...items];
     setClothes(next);
-    saveToCloud(next);
+    pushDataToCloud('clothes', next);
+  };
+
+  const handleSaveOutfit = async (outfit) => {
+    const next = [...outfits, outfit];
+    setOutfits(next);
+    await pushDataToCloud('outfits', next);
   };
 
   if (!user) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <button
-          className="bg-blue-500 text-white px-6 py-2 rounded"
-          onClick={() => signInWithPopup(auth, new GoogleAuthProvider())}
-        >
-          Sign in with Google
-        </button>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-stone-50 p-6 text-stone-800">
+        <div className="bg-white p-10 rounded-3xl shadow-xl border border-stone-100 flex flex-col items-center max-w-md w-full">
+          <div className="w-16 h-16 bg-stone-900 text-white rounded-2xl flex items-center justify-center mb-6 shadow-md">
+            <span className="text-3xl font-serif italic">S</span>
+          </div>
+          <h1 className="text-4xl font-bold mb-2 tracking-tight">StyleSpace</h1>
+          <p className="text-stone-500 mb-8 text-center">Your personal wardrobe, synced across all your devices.</p>
+          <button 
+            onClick={() => signInWithPopup(auth, new GoogleAuthProvider())} 
+            className="w-full flex items-center justify-center gap-3 bg-white border-2 border-stone-200 p-4 rounded-xl shadow-sm hover:bg-stone-50 hover:border-stone-300 transition-all font-medium text-lg"
+          >
+            <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-6 h-6" alt="Google" />
+            Continue with Google
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">StyleSpace</h1>
-        <button
-          className="bg-red-500 text-white px-4 py-2 rounded"
-          onClick={() => auth.signOut()}
-        >
-          Sign Out
-        </button>
-      </div>
-      <button
-        className="bg-green-500 text-white px-4 py-2 rounded mb-4"
-        onClick={addItem}
-      >
-        Add Item
-      </button>
-      <div className="space-y-2">
-        {clothes.map((item) => (
-          <div key={item.id} className="p-4 border rounded shadow-sm">
-            {item.name}
+    <div className="min-h-screen bg-stone-50 text-stone-800 p-4 md:p-8 font-sans">
+      <div className="max-w-5xl mx-auto">
+        <header className="flex justify-between items-center mb-8 bg-white p-4 rounded-2xl shadow-sm border border-stone-100">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-stone-900 text-white rounded-xl flex items-center justify-center shadow-md">
+              <span className="text-xl font-serif italic">S</span>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Wardrobe</h2>
+              <p className="text-xs text-stone-500 font-medium">Logged in as {user.displayName || 'User'}</p>
+            </div>
           </div>
-        ))}
+          <button 
+            onClick={() => signOut(auth)} 
+            className="p-3 bg-stone-100 text-stone-600 rounded-xl hover:bg-red-50 hover:text-red-600 transition-colors flex items-center gap-2"
+            title="Sign Out"
+          >
+            <LogOut size={18} />
+            <span className="hidden sm:inline font-medium">Sign Out</span>
+          </button>
+        </header>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-stone-800 flex items-center gap-2">
+                Clothing Items
+                <span className="bg-stone-100 text-stone-500 text-sm py-1 px-3 rounded-full">{clothes.length}</span>
+              </h3>
+            </div>
+            
+            <div className="space-y-3 mb-6">
+              {clothes.length === 0 ? (
+                <div className="text-center py-10 bg-stone-50 rounded-2xl border border-dashed border-stone-200 text-stone-400">
+                  No items yet. Add your first piece!
+                </div>
+              ) : (
+                clothes.map(item => (
+                  <div key={item.id} className="p-4 border border-stone-100 rounded-2xl shadow-sm flex justify-between items-center hover:border-stone-200 transition-colors">
+                    <span className="font-medium text-stone-700">{item.name}</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <button 
+              onClick={() => handleAdd([{ name: `New Item ${clothes.length + 1}`, id: Date.now() }])} 
+              className="w-full flex items-center justify-center gap-2 py-4 bg-stone-900 text-white rounded-2xl hover:bg-stone-800 transition shadow-md font-medium"
+            >
+              <Plus size={20} /> Add New Item
+            </button>
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-stone-100">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-bold text-stone-800 flex items-center gap-2">
+                Saved Outfits
+                <span className="bg-stone-100 text-stone-500 text-sm py-1 px-3 rounded-full">{outfits.length}</span>
+              </h3>
+            </div>
+            
+            <div className="space-y-3 mb-6">
+              {outfits.length === 0 ? (
+                <div className="text-center py-10 bg-stone-50 rounded-2xl border border-dashed border-stone-200 text-stone-400">
+                  No outfits yet. Create your first look!
+                </div>
+              ) : (
+                outfits.map(outfit => (
+                  <div key={outfit.id} className="p-4 border border-stone-100 rounded-2xl shadow-sm flex justify-between items-center hover:border-stone-200 transition-colors">
+                    <span className="font-medium text-stone-700">{outfit.name}</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <button 
+              onClick={() => handleSaveOutfit({ name: `New Outfit ${outfits.length + 1}`, id: Date.now() })} 
+              className="w-full flex items-center justify-center gap-2 py-4 bg-white border-2 border-stone-200 text-stone-700 rounded-2xl hover:bg-stone-50 hover:border-stone-300 transition shadow-sm font-medium"
+            >
+              <Plus size={20} /> Create Outfit
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
